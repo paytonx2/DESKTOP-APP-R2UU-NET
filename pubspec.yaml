@@ -1,0 +1,41 @@
+name: r2unet_desktoplib
+description: R2U-NET Inspection Pro — Desktop defect detection platform
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  window_manager: ^0.3.8
+  http: ^1.2.1
+  file_picker: ^8.0.3
+  camera: ^0.10.5+9
+  provider: ^6.1.2
+  path_provider: ^2.1.3
+
+  # video_player ไม่รองรับ Windows desktop — ใช้ media_kit แทน
+  media_kit: ^1.1.11
+  media_kit_video: ^1.2.4
+  media_kit_libs_windows_video: ^1.0.4   # native libs สำหรับ Windows
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/fonts/
+
+  fonts:
+    - family: SpaceMono
+      fonts:
+        - asset: assets/fonts/SpaceMono-Regular.ttf
+        - asset: assets/fonts/SpaceMono-Bold.ttf
+          weight: 700
