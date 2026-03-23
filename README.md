@@ -6,7 +6,6 @@
 ส่วนประกอบเทคโนโลยีหน้าที่UIFlutter Desktopแสดงผล, ควบคุมการทำงานAI BackendPython + Flaskโหลดโมเดล, Inference, จัดการกล้องAI ModelTensorFlow / R2U-NetSemantic Segmentationกล้องOpenCV (Python)ดึง frame, live previewวิดีโอmedia_kitเล่นไฟล์วิดีโอบน Windows/macOS/Linux
 
 ฟีเจอร์หลัก
-
 Image Batch — อัปโหลดรูปภาพหลายรูปพร้อมกัน ดูผล Original vs AI Result คู่กัน
 Live Video — เปิดกล้อง USB/Integrated หรือนำเข้าไฟล์วิดีโอ รัน AI inference อัตโนมัติ
 Dashboard — สรุปผลการตรวจด้วย KPI cards และ Donut chart แบบ real-time
@@ -61,3 +60,7 @@ Python (Backend)
 Python 3.9+
 TensorFlow 2.12–2.15
 OpenCV, Flask, Flask-CORS
+
+# การติดตั้งและรัน
+
+.... รอการอัพเดทในอนาคต
