@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' as log;
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
@@ -71,13 +72,18 @@ class _VideoScreenState extends State<VideoScreen> {
   // ══════════════════════════════════════════════════════════
   //  Video file
   // ══════════════════════════════════════════════════════════
+  // ── video file path ที่ Flutter เปิดอยู่ (ใช้ส่งให้ Python seek frame) ──
+  String _videoPath = '';
+
   Future<void> _openVideo() async {
     final result = await FilePicker.platform.pickFiles(type: FileType.video);
     if (result == null || result.files.first.path == null) return;
 
     _stopAll();
     await _closeCamSilent();
-    await _player.open(Media(result.files.first.path!));
+
+    _videoPath = result.files.first.path!;
+    await _player.open(Media(_videoPath));
 
     setState(() {
       _mode     = _Mode.video;
@@ -185,6 +191,18 @@ class _VideoScreenState extends State<VideoScreen> {
     });
   }
 
+  // ── ปิดกล้อง (เรียกจากปุ่ม) ──────────────────────────────
+  Future<void> _closeCamera() async {
+    _stopAll();
+    await _closeCamSilent();
+    setState(() {
+      _mode        = _Mode.none;
+      _srcLabel    = 'No source selected';
+      _resultFrame = null;
+      _aiStatus    = 'IDLE';
+    });
+  }
+
   Future<void> _closeCamSilent() async {
     _frameTimer?.cancel();
     _frameTimer = null;
@@ -255,28 +273,39 @@ class _VideoScreenState extends State<VideoScreen> {
       } catch (_) {}
 
     } else if (_mode == _Mode.video) {
-      // ── Video: ดึง screenshot จาก media_kit แล้วส่ง /predict ──
+      // ── Video: ส่ง path + position ให้ Python ดึง frame + inference ──
       try {
-        final bytes = await _player.screenshot();
-        if (bytes == null || !mounted) return;
+        // ดึง position ปัจจุบันจาก media_kit player
+        final posMs = _player.state.position.inMilliseconds;
 
-        final result = await ApiService.predict(
-          imageBytes:    bytes,
-          filename:      'frame.png',
-          modelType:     s.modelType,
-          confThreshold: s.confThreshold,
-          pxThreshold:   s.pxThreshold,
-        );
+        final res = await http.post(
+          Uri.parse('$_baseUrl/video/predict'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'path':           _videoPath,
+            'position_ms':    posMs,
+            'model_type':     s.modelType,
+            'conf_threshold': s.confThreshold,
+            'px_threshold':   s.pxThreshold,
+          }),
+        ).timeout(const Duration(seconds: 30));
 
-        if (!mounted || !result.ok) return;
-        _handleResult(
-          status:     result.status,
-          pixelCount: result.pixelCount,
-          imgB64:     result.imageBase64,
-          source:     _srcLabel,
-          modelType:  s.modelType,
-        );
-      } catch (_) {}
+        if (!mounted) return;
+        final json = jsonDecode(res.body);
+        if (json['success'] == true) {
+          _handleResult(
+            status:     json['status']      as String,
+            pixelCount: json['pixel_count'] as int,
+            imgB64:     json['image']       as String,
+            source:     _srcLabel,
+            modelType:  s.modelType,
+          );
+        } else {
+          log.log('video/predict error: ${json['error']}');
+        }
+      } catch (e) {
+        log.log('video/predict exception: $e');
+      }
     }
   }
 
@@ -348,13 +377,27 @@ class _VideoScreenState extends State<VideoScreen> {
               style: TextStyle(color: AppTheme.textMuted, fontSize: 11)),
         ]),
         const Spacer(),
-        // Open Camera button
+        // Camera button — สลับระหว่าง Open/Close ตาม state
         _loadingCams
-            ? const SizedBox(width: 20, height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.accent))
-            : _HBtn(icon: Icons.videocam, label: 'Open Camera',
-                    color: _mode == _Mode.camera ? AppTheme.success : AppTheme.accent,
-                    onTap: _showCameraDialog),
+            ? const SizedBox(
+                width: 20, height: 20,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: AppTheme.accent))
+            : _mode == _Mode.camera
+                // กล้องเปิดอยู่ → แสดงปุ่มปิด
+                ? _HBtn(
+                    icon:  Icons.videocam_off,
+                    label: 'Close Camera',
+                    color: AppTheme.danger,
+                    onTap: _closeCamera,
+                  )
+                // กล้องปิดอยู่ → แสดงปุ่มเปิด
+                : _HBtn(
+                    icon:  Icons.videocam,
+                    label: 'Open Camera',
+                    color: AppTheme.accent,
+                    onTap: _showCameraDialog,
+                  ),
         const SizedBox(width: 8),
         _HBtn(icon: Icons.video_file, label: 'Open Video',
               color: _mode == _Mode.video ? AppTheme.success : AppTheme.accent,
